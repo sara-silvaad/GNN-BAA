@@ -1,0 +1,110 @@
+import torch
+from utils.metrics import calculate_accuracy, calculate_precision_recall_f1
+
+def test_model_classifier(model,path_to_checkpoint, test_loader, criterion_classif):
+
+    checkpoint = torch.load(path_to_checkpoint)
+    model.load_state_dict(checkpoint['model_state_dict'])
+
+    model.eval()
+    test_loss = 0
+    test_accuracy = 0
+    test_precision = 0
+    test_recall = 0
+    test_f1 = 0
+
+    with torch.no_grad():
+        for data in test_loader:
+            y = data.y.long().to('cuda:1')
+            classif_logits = model(data)     
+            t_loss = criterion_classif(classif_logits, y)    
+            #t_loss = criterion_classif(classif_logits, data.y.long()) 
+            test_loss += t_loss.item()
+
+            acc = calculate_accuracy(classif_logits, y)
+            #acc = calculate_accuracy(classif_logits, data.y.long())
+            test_accuracy += acc
+
+            precision, recall, f1_score = calculate_precision_recall_f1(classif_logits, y)
+            # precision, recall, f1_score = calculate_precision_recall_f1(classif_logits, data.y)
+            test_precision += precision
+            test_recall += recall
+            test_f1 += f1_score
+
+    # Calculating averages
+    test_loss_avg = test_loss / len(test_loader)
+    test_accuracy_avg = test_accuracy / len(test_loader)
+    test_precision_avg = test_precision / len(test_loader)
+    test_recall_avg = test_recall / len(test_loader)
+    test_f1_avg = test_f1 / len(test_loader)
+
+    # Compiling results into a dictionary
+    results = {
+        'test_loss': test_loss_avg,
+        'test_accuracy': test_accuracy_avg,
+        'test_precision': test_precision_avg,
+        'test_recall': test_recall_avg,
+        'test_f1': test_f1_avg
+    }
+
+    print(f'Test Loss: {test_loss_avg:.2f}, Test Acc: {test_accuracy_avg:.2f}, '
+          f'Test Precision: {test_precision_avg:.2f}, Test Recall: {test_recall_avg:.2f}, '
+          f'Test F1: {test_f1_avg:.2f}')
+    return results
+
+def test_model_encoder_decoder_FCFC_Temporal(model, path_to_checkpoint, test_loader, criterion_classif):
+
+    checkpoint = torch.load(path_to_checkpoint)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    
+    model.eval()
+    test_loss = 0
+    test_accuracy = 0
+    test_precision = 0
+    test_recall = 0
+    test_f1 = 0
+
+    with torch.no_grad():
+        for data in test_loader:
+            y = data.y.long().to('cuda:1')
+            _, classif_logits, _ = model(data)     
+            t_loss = criterion_classif(classif_logits, y)    
+            test_loss += t_loss.item()
+
+            acc = calculate_accuracy(classif_logits, y)
+            test_accuracy += acc
+
+            precision, recall, f1_score = calculate_precision_recall_f1(classif_logits, y)
+            test_precision += precision
+            test_recall += recall
+            test_f1 += f1_score
+
+    # Calculating averages
+    test_loss_avg = test_loss / len(test_loader)
+    test_accuracy_avg = test_accuracy / len(test_loader)
+    test_precision_avg = test_precision / len(test_loader)
+    test_recall_avg = test_recall / len(test_loader)
+    test_f1_avg = test_f1 / len(test_loader)
+
+    # Compiling results into a dictionary
+    results = {
+        'test_loss': test_loss_avg,
+        'test_accuracy': test_accuracy_avg,
+        'test_precision': test_precision_avg,
+        'test_recall': test_recall_avg,
+        'test_f1': test_f1_avg
+    }
+
+    print(f'Test Loss: {test_loss_avg:.2f}, Test Acc: {test_accuracy_avg:.2f}, '
+          f'Test Precision: {test_precision_avg:.2f}, Test Recall: {test_recall_avg:.2f}, '
+          f'Test F1: {test_f1_avg:.2f}')
+    return results
+
+def test_model(model, path_to_checkpoint, test_loader, lamb, criterion_recon, criterion_classif):
+    if model.model_name in ['EncoderDecoderFCFCTemporal', 'EncoderDecoderFCFCMultipleTemporal']:
+        results = test_model_encoder_decoder_FCFC_Temporal(model, path_to_checkpoint, test_loader, criterion_classif)
+        return results
+    
+    elif model.model_name in ['EncoderClassifierFCRandomTemporal']:
+        results = test_model_classifier(model, path_to_checkpoint, test_loader, criterion_classif)
+        return results
